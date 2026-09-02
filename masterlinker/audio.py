@@ -55,7 +55,16 @@ class OpusUnavailable(RuntimeError):
     pass
 
 
-_LIB_CANDIDATES = ["opus", "libopus.so.0", "libopus.so", "libopus.0.dylib", "opus.dll"]
+_LIB_CANDIDATES = [
+    # Linux
+    "opus", "libopus.so.0", "libopus.so",
+    # macOS. find_library() often misses Homebrew, so the prefixes are explicit:
+    # /opt/homebrew on Apple Silicon, /usr/local on Intel.
+    "libopus.0.dylib", "libopus.dylib",
+    "/opt/homebrew/lib/libopus.0.dylib", "/usr/local/lib/libopus.0.dylib",
+    # Windows
+    "opus.dll", "libopus-0.dll",
+]
 
 
 def _load_libopus(explicit_path: str = "") -> ctypes.CDLL:

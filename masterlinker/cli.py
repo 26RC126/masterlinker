@@ -45,12 +45,25 @@ async def _serve(config: Config) -> None:
 
     stop = asyncio.Event()
     loop = asyncio.get_running_loop()
+    signals_available = False
     for sig in (signal.SIGINT, signal.SIGTERM):
-        with contextlib.suppress(NotImplementedError):
+        try:
             loop.add_signal_handler(sig, stop.set)
+            signals_available = True
+        except NotImplementedError:
+            pass   # Windows: the proactor loop has no signal handlers
 
     try:
-        await stop.wait()
+        if signals_available:
+            await stop.wait()
+        else:
+            # Without a handler, Windows only delivers KeyboardInterrupt when
+            # the loop wakes up. Waiting on an Event that nothing will ever set
+            # would swallow Ctrl+C entirely, so tick instead.
+            while not stop.is_set():
+                await asyncio.sleep(0.4)
+    except KeyboardInterrupt:
+        pass
     finally:
         print("\nShutting down…")
         await bridge.stop()

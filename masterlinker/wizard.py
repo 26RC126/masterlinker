@@ -95,7 +95,12 @@ def read_private_key(config_dir: str) -> str:
     with open(path, "w", encoding="utf-8") as fh:
         fh.write(pem)
     os.chmod(path, 0o600)
-    _say(f"  Saved to {path} (readable only by you).")
+    if os.name == "nt":
+        _say(f"  Saved to {path}.")
+        _say("  Note: Windows ignores Unix file permissions, so this is not")
+        _say("  restricted to your account. Keep it somewhere only you can read.")
+    else:
+        _say(f"  Saved to {path} (readable only by you).")
     return path
 
 

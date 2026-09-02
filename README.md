@@ -16,6 +16,7 @@ live activity log](docs/panel.png)
 
 - [What it does](#what-it-does)
 - [Before you start](#before-you-start)
+- [Supported platforms](#supported-platforms)
 - [Install](#install)
 - [Setup](#setup)
 - [Running it](#running-it)
@@ -71,9 +72,37 @@ See [Things that will bite you](#things-that-will-bite-you).
 
 ---
 
+## Supported platforms
+
+| | Voice relay | Announcements, chat-to-speech, morse |
+|---|---|---|
+| Debian, Ubuntu, Raspberry Pi OS | tested | tested — `apt install libopus0 espeak-ng` |
+| Other Linux | expected to work | needs libopus and a speech engine |
+| macOS | expected to work | `brew install opus`, speech uses the built-in `say` |
+| Windows | expected to work | needs an `opus.dll` on PATH and espeak-ng installed |
+
+Relaying voice between channels is pure Python plus `aiohttp` and
+`cryptography`, so it runs anywhere those do. The second column is the part
+with native dependencies, and the bridge degrades to text announcements rather
+than failing if they are absent. `masterlinker doctor` reports what it found.
+
+Development and testing happen on Debian and Raspberry Pi OS. The other rows
+are written from the code rather than from a machine, so treat them as
+"should work, tell me if it does not".
+
+Two Windows caveats worth knowing before you rely on it:
+
+- Unix file permissions do not exist there, so the `0600` on `masterlinker.json`
+  and `zello.key` has no effect. Anyone with access to the account, or to the
+  machine, can read your Zello password and private key. Put them somewhere
+  access-controlled, or run the bridge on Linux.
+- libopus is not packaged for Windows by anyone convenient. You need an
+  `opus.dll` on PATH, or set `audio.libopus_path` to point at one. Without it
+  the crosslink still works and announcements go out as text.
+
 ## Install
 
-Python 3.11 or newer.
+Python 3.11 or newer. Tested on 3.12.
 
 ```bash
 sudo apt install python3-venv libopus0 espeak-ng     # Debian, Ubuntu, Raspberry Pi OS
@@ -118,8 +147,9 @@ All good.
 
 This writes two files into the working directory: `masterlinker.json`, which
 holds your Zello account password, and `zello.key`, your RSA private key. Both
-are created `0600` and both are in `.gitignore`. If you move them, keep them
-out of version control — a leaked key has to be revoked at
+are created `0600` on Linux and macOS — Windows ignores that, see
+[Supported platforms](#supported-platforms) — and both are in `.gitignore`.
+If you move them, keep them out of version control — a leaked key has to be revoked at
 developers.zello.com, not just deleted.
 
 It asks, in order:
@@ -444,7 +474,8 @@ number it wants.
 | `node_defaults.announcer` | `items`, `clock`, `timezone`, `location`, `units` |
 | `node_defaults.morse` | `text`, `every_minutes`, `wpm`, `tone_hz`, `polite` |
 
-The file is written `0600` because it holds Zello account passwords. Panel
+The file is written `0600` on Linux and macOS because it holds Zello account
+passwords; Windows has no equivalent, so protect it another way. Panel
 passwords are PBKDF2-HMAC-SHA256 with 200,000 rounds and a per-user salt.
 The panel's own API never returns stored secrets — they come back as `••••••`,
 and writing that value back leaves the stored one untouched.
