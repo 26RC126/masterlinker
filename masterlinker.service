@@ -1,0 +1,41 @@
+[Unit]
+Description=Masterlinker — Zello crosslink bridge
+Documentation=file:///opt/masterlinker/README.md
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=masterlinker
+Group=masterlinker
+WorkingDirectory=/opt/masterlinker
+ExecStart=/opt/masterlinker/venv/bin/python -m masterlinker run --config /opt/masterlinker/masterlinker.json
+Restart=always
+RestartSec=5
+
+# The bridge reconnects on its own, so systemd should not fight it.
+# These give up only if it thrashes.
+StartLimitIntervalSec=300
+StartLimitBurst=10
+
+# The config file holds Zello account passwords and sits next to the private
+# key, so keep the process away from everything it does not need.
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths=/opt/masterlinker
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+RestrictNamespaces=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=no
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=masterlinker
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Masterlinker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/panel.css">
+</head>
+<body>
+
+<div id="signin" class="signin" hidden>
+  <form class="signin-card" id="signin-form">
+    <h1 class="wordmark" id="signin-title">Masterlinker</h1>
+    <p class="signin-lede">Sign in to patch channels.</p>
+    <label class="field">
+      <span>Username</span>
+      <input name="username" autocomplete="username" required>
+    </label>
+    <label class="field">
+      <span>Password</span>
+      <input name="password" type="password" autocomplete="current-password" required>
+    </label>
+    <button class="btn btn-primary" type="submit">Sign in</button>
+    <p class="signin-error" id="signin-error" role="alert"></p>
+  </form>
+</div>
+
+<div id="app" class="app" hidden>
+
+  <header class="rack-head">
+    <h1 class="wordmark" id="wordmark">Masterlinker</h1>
+    <div class="head-meta">
+      <span class="pill" id="engine-pill" title="Speech and codec availability"></span>
+      <select id="preset-select" class="select" aria-label="Link presets">
+        <option value="">Presets</option>
+      </select>
+      <button class="btn" id="save-preset">Save layout</button>
+      <button class="btn btn-alert" id="open-alert">Emergency alert</button>
+      <button class="btn" id="signout" hidden>Sign out</button>
+    </div>
+  </header>
+
+  <main class="rack">
+
+    <section class="bay bay-nodes" aria-labelledby="nodes-title">
+      <div class="bay-head">
+        <h2 id="nodes-title">Channels</h2>
+        <button class="btn btn-small" id="add-node">Add a channel</button>
+      </div>
+      <ul class="strips" id="strips"></ul>
+      <p class="empty" id="nodes-empty" hidden>
+        No channels yet. Add one and it will connect straight away.
+      </p>
+    </section>
+
+    <section class="bay bay-patch" aria-labelledby="patch-title">
+      <div class="bay-head">
+        <h2 id="patch-title">Patch</h2>
+        <p class="bay-note">Rows send, columns receive. Click a hole to patch.</p>
+      </div>
+      <div class="matrix-scroll">
+        <table class="matrix" id="matrix"></table>
+      </div>
+      <ul class="link-list" id="link-list"></ul>
+    </section>
+
+    <section class="bay bay-log" aria-labelledby="log-title">
+      <div class="bay-head">
+        <h2 id="log-title">Activity</h2>
+        <label class="toggle">
+          <input type="checkbox" id="autoscroll" checked>
+          <span>Follow</span>
+        </label>
+      </div>
+      <ol class="log" id="log"></ol>
+    </section>
+
+  </main>
+
+  <p class="sr-only" id="live-region" role="status" aria-live="polite"></p>
+</div>
+
+<dialog class="sheet" id="node-sheet">
+  <form method="dialog" id="node-form">
+    <h2 id="node-sheet-title">Add a channel</h2>
+    <div class="grid">
+      <label class="field"><span>Short id</span>
+        <input name="id" pattern="[a-z0-9\-]+" required placeholder="alpha">
+      </label>
+      <label class="field"><span>Display name</span>
+        <input name="name" placeholder="Alpha net">
+      </label>
+      <label class="field"><span>Zello channel</span>
+        <input name="channel" required placeholder="Exact channel name">
+      </label>
+      <label class="field"><span>Spoken nickname</span>
+        <input name="nickname" placeholder="Alpha">
+      </label>
+      <label class="field"><span>Zello username</span>
+        <input name="username" autocomplete="off">
+      </label>
+      <label class="field"><span>Zello password</span>
+        <input name="password" type="password" autocomplete="new-password">
+      </label>
+    </div>
+    <label class="check"><input type="checkbox" name="listen_only"> Listen only — never transmit here</label>
+    <label class="check"><input type="checkbox" name="text_only"> Text only — accessibility mode, no audio out</label>
+    <p class="sheet-error" id="node-error" role="alert"></p>
+    <div class="sheet-actions">
+      <button class="btn" value="cancel" formnovalidate>Cancel</button>
+      <button class="btn btn-danger" id="delete-node" type="button" hidden>Remove</button>
+      <button class="btn btn-primary" id="save-node" value="save">Save channel</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog class="sheet" id="alert-sheet">
+  <form method="dialog" id="alert-form">
+    <h2>Emergency alert</h2>
+    <p class="sheet-note">
+      This is spoken and texted into every connected channel immediately. It ignores
+      the wait-for-a-gap rule, so use it the way you would use an alert tone.
+    </p>
+    <label class="field"><span>What to say</span>
+      <textarea name="text" rows="3" required placeholder="All stations, stand by for a priority message."></textarea>
+    </label>
+    <div class="sheet-actions">
+      <button class="btn" value="cancel" formnovalidate>Cancel</button>
+      <button class="btn btn-alert" value="send">Send alert</button>
+    </div>
+  </form>
+</dialog>
+
+<script src="/static/panel.js"></script>
+</body>
+</html>

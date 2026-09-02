@@ -1,0 +1,4 @@
+aiohttp>=3.9
+cryptography>=42.0
+# optional: better image thumbnails when forwarding pictures between channels
+# Pillow>=10.0

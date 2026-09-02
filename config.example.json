@@ -1,0 +1,255 @@
+{
+  "config_version": 1,
+  "app_name": "Masterlinker",
+  "setup_complete": true,
+  "web": {
+    "host": "127.0.0.1",
+    "port": 8787,
+    "require_auth": true,
+    "multi_user": false,
+    "session_hours": 12,
+    "secret": "generated-on-first-run-do-not-copy-this"
+  },
+  "zello": {
+    "ws_url": "wss://zello.io/ws",
+    "issuer": "PASTE-YOUR-ISSUER-FROM-developers.zello.com",
+    "private_key_path": "zello.key",
+    "token_ttl_s": 3600,
+    "reconnect_min_s": 2,
+    "reconnect_max_s": 60,
+    "client_version": "masterlinker",
+    "platform_name": "Masterlinker Gateway",
+    "request_transcriptions": false
+  },
+  "audio": {
+    "tts_backend": "auto",
+    "piper_model": "",
+    "sample_rate": 16000,
+    "frame_ms": 20,
+    "opus_bitrate": 24000,
+    "libopus_path": ""
+  },
+  "bridge": {
+    "max_hops": 3,
+    "dedupe_window_s": 8,
+    "ptt_release_grace_ms": 120
+  },
+  "users": [
+    {
+      "username": "admin",
+      "salt": "created-by-the-setup-wizard",
+      "hash": "created-by-the-setup-wizard",
+      "role": "admin"
+    }
+  ],
+  "nodes": [
+    {
+      "id": "alpha",
+      "name": "Alpha net",
+      "platform": "zello",
+      "channel": "My First Channel",
+      "username": "bridge-bot",
+      "password": "the-zello-account-password",
+      "ws_url": "",
+      "nickname": "Alpha",
+      "announcer": {
+        "enabled": true,
+        "prefix": "",
+        "clock": "24h",
+        "timezone": "Europe/London",
+        "location": {
+          "lat": 51.5072,
+          "lon": -0.1276,
+          "label": "London"
+        },
+        "units": "metric",
+        "items": [
+          {
+            "kind": "time",
+            "every_minutes": 60,
+            "enabled": true
+          },
+          {
+            "kind": "date",
+            "at": "08:00",
+            "enabled": true
+          },
+          {
+            "kind": "weather",
+            "every_minutes": 180,
+            "enabled": true
+          },
+          {
+            "kind": "custom",
+            "every_minutes": 30,
+            "text": "This channel is bridged. Please leave a gap between overs.",
+            "enabled": false
+          }
+        ]
+      },
+      "morse": {
+        "enabled": true,
+        "text": "M0ABC",
+        "every_minutes": 10,
+        "wpm": 18,
+        "tone_hz": 700,
+        "gain_db": -6.0,
+        "polite": true
+      }
+    },
+    {
+      "id": "bravo",
+      "name": "Bravo net",
+      "platform": "zello",
+      "channel": "My Second Channel",
+      "username": "bridge-bot",
+      "password": "the-zello-account-password",
+      "ws_url": "",
+      "nickname": "Bravo",
+      "chat_tts": {
+        "enabled": true,
+        "gate_s": 210,
+        "prefix_sender": true,
+        "max_chars": 400,
+        "trigger": "all",
+        "trigger_prefix": "!say"
+      }
+    },
+    {
+      "id": "charlie",
+      "name": "Listening post",
+      "platform": "zello",
+      "channel": "A Third Channel",
+      "username": "bridge-bot",
+      "password": "the-zello-account-password",
+      "ws_url": "",
+      "nickname": "Charlie",
+      "listen_only": true
+    }
+  ],
+  "links": [
+    {
+      "id": "alpha~bravo",
+      "a": "alpha",
+      "b": "bravo",
+      "mode": "both",
+      "enabled": true,
+      "media": {
+        "audio": true,
+        "text": true,
+        "image": true,
+        "location": false
+      },
+      "created_at": null,
+      "note": "the everyday patch"
+    }
+  ],
+  "presets": [
+    {
+      "name": "Net night",
+      "links": [
+        {
+          "a": "alpha",
+          "b": "bravo",
+          "mode": "both"
+        },
+        {
+          "a": "bravo",
+          "b": "charlie",
+          "mode": "both"
+        }
+      ]
+    },
+    {
+      "name": "Quiet hours",
+      "links": []
+    }
+  ],
+  "node_defaults": {
+    "enabled": true,
+    "listen_only": false,
+    "text_only": false,
+    "nickname": "",
+    "tts": {
+      "announce_link": true,
+      "announce_unlink": true,
+      "style": "nickname",
+      "voice": null,
+      "rate_wpm": 165,
+      "gain_db": 0.0,
+      "also_text": false
+    },
+    "politeness": {
+      "enabled": true,
+      "hold_after_human_s": 210,
+      "coalesce": true,
+      "max_hold_s": 1800,
+      "text_fallback": false,
+      "stale_drop_kinds": [
+        "time",
+        "beacon"
+      ]
+    },
+    "announcer": {
+      "enabled": false,
+      "prefix": "",
+      "items": [],
+      "clock": "24h",
+      "timezone": "",
+      "location": {
+        "lat": null,
+        "lon": null,
+        "label": ""
+      },
+      "units": "metric"
+    },
+    "morse": {
+      "enabled": false,
+      "text": "",
+      "every_minutes": 10,
+      "wpm": 18,
+      "tone_hz": 700,
+      "gain_db": -6.0,
+      "polite": true
+    },
+    "chat_tts": {
+      "enabled": false,
+      "gate_s": 210,
+      "prefix_sender": true,
+      "max_chars": 400,
+      "trigger": "all",
+      "trigger_prefix": "!say"
+    },
+    "transcription_relay": {
+      "enabled": false,
+      "min_confidence": 0.55,
+      "to_own_channel": false
+    },
+    "guards": {
+      "tot_stream_s": 180,
+      "tot_action": "close",
+      "tot_cooldown_s": 60,
+      "deadkey_enabled": true,
+      "deadkey_eval_ms": 800,
+      "deadkey_max_avg_bytes": 12,
+      "deadkey_late_open": true,
+      "kerchunk_enabled": true,
+      "kerchunk_max_s": 1.5,
+      "kerchunk_count": 4,
+      "kerchunk_window_s": 30,
+      "kerchunk_cooldown_s": 120,
+      "link_idle_timeout_min": 180,
+      "link_idle_timeout_enabled": true
+    },
+    "forwarding": {
+      "audio": true,
+      "text": true,
+      "image": true,
+      "location": false,
+      "attribute_sender": true,
+      "text_rate_per_min": 20,
+      "image_max_bytes": 2000000,
+      "image_rate_per_min": 6
+    }
+  }
+}
