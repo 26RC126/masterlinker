@@ -1,0 +1,97 @@
+# ---------------------------------------------------------------------------
+# Secrets — the part no language template can know about
+# ---------------------------------------------------------------------------
+# `masterlinker setup` writes both of these into the working directory, which
+# for most people is this clone. The config holds a Zello account password; the
+# key is an RSA private key from the developer console. Never commit either.
+# If you already have, revoke the key at developers.zello.com before anything
+# else — deleting the commit is not enough once it has been pushed.
+masterlinker.json
+masterlinker.*.json
+!config.example.json
+*.key
+*.pem
+
+# The CLI reads MASTERLINKER_USER and MASTERLINKER_PASSWORD from the
+# environment, so a .env file here would hold your panel login.
+.env
+.envrc
+
+# PyPI upload credentials
+.pypirc
+
+# ---------------------------------------------------------------------------
+# Runtime output
+# ---------------------------------------------------------------------------
+shots/
+*.log
+*.pid
+
+# ---------------------------------------------------------------------------
+# Python
+# ---------------------------------------------------------------------------
+__pycache__/
+*.py[codz]
+*$py.class
+*.so
+
+# Environments
+venv/
+.venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Packaging and build
+.Python
+build/
+dist/
+sdist/
+downloads/
+eggs/
+.eggs/
+develop-eggs/
+parts/
+wheels/
+share/python-wheels/
+*.egg
+*.egg-info/
+.installed.cfg
+MANIFEST
+# Note: GitHub's template also lists lib/ and lib64/ here. They are omitted on
+# purpose — nothing in this project builds into them, and silently ignoring a
+# source directory someone names lib/ is the likelier accident.
+
+# PyInstaller, if anyone packages this as a Windows executable
+*.manifest
+*.spec
+
+# Tests, coverage and type checkers
+.pytest_cache/
+.tox/
+.nox/
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+*.cover
+.hypothesis/
+.cache
+.mypy_cache/
+.dmypy.json
+.pyre/
+.pytype/
+.ruff_cache/
+cython_debug/
+
+# ---------------------------------------------------------------------------
+# Editors and OS
+# ---------------------------------------------------------------------------
+.vscode/
+.idea/
+.spyderproject
+.spyproject
+.ropeproject
+tempCodeRunnerFile.py
+.DS_Store
+Thumbs.db
