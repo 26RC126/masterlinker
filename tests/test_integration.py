@@ -338,6 +338,48 @@ async def main():
     check("the held announcement goes out once the channel is quiet",
           released is not None and released.text == "newer")
 
+    # -- one announcement at a time per channel -------------------------
+    # Speech is synthesised before the stream opens, so a slow engine used to
+    # leave a window where a second announcement started on top of the first.
+    speak_node = bridge.nodes["charlie"]
+    speak_node.last_human_activity = 0
+    original_pcm = bridge.speaker.pcm_for
+
+    async def slow_pcm(item, node_cfg):
+        await asyncio.sleep(1.5)
+        return await original_pcm(item, node_cfg)
+
+    bridge.speaker.pcm_for = slow_pcm
+    peak = live = 0
+    real_start, real_stop = speak_node.start_stream, speak_node.stop_stream
+
+    async def counted_start(*a, **kw):
+        nonlocal live, peak
+        sid = await real_start(*a, **kw)
+        live += 1
+        peak = max(peak, live)
+        return sid
+
+    async def counted_stop(sid):
+        nonlocal live
+        live -= 1
+        return await real_stop(sid)
+
+    speak_node.start_stream, speak_node.stop_stream = counted_start, counted_stop
+    bridge.queues["charlie"].submit(Announcement(kind="custom", text="Routine notice"))
+    await asyncio.sleep(1.2)
+    bridge.queues["charlie"].submit(
+        Announcement(kind="alert", text="Emergency", priority=EMERGENCY))
+    await asyncio.sleep(9)
+    spoken = [e["message"] for e in bridge.events
+              if e["level"] == "say" and "charlie" in e["message"]]
+    check("a channel never transmits two announcements at once", peak <= 1,
+          f"peak {peak}")
+    check("an emergency queued behind one still goes out", len(spoken) == 2,
+          f"{len(spoken)} delivered")
+    bridge.speaker.pcm_for = original_pcm
+    speak_node.start_stream, speak_node.stop_stream = real_start, real_stop
+
     # -- web API --------------------------------------------------------
     app = build_app(config, bridge)
     api_runner = web.AppRunner(app, access_log=None)

@@ -252,19 +252,24 @@ def build_app(config: Config, bridge: Bridge) -> web.Application:
         await ws.prepare(request)
         queue: asyncio.Queue = asyncio.Queue(maxsize=200)
         bridge.subscribers.add(queue)
-        await ws.send_json({"type": "state", "state": bridge.snapshot()})
-        for event in list(bridge.events)[-60:]:
-            await ws.send_json({"type": "log", "event": event})
+        pump: asyncio.Task | None = None
         try:
+            # These sends can fail if the browser goes away mid-handshake, so
+            # they belong inside the try — otherwise the queue is never
+            # discarded and accumulates for the life of the process.
+            await ws.send_json({"type": "state", "state": bridge.snapshot()})
+            for event in list(bridge.events)[-60:]:
+                await ws.send_json({"type": "log", "event": event})
             pump = asyncio.create_task(_pump(ws, queue))
             async for msg in ws:
                 if msg.type in (WSMsgType.CLOSE, WSMsgType.ERROR):
                     break
         finally:
             bridge.subscribers.discard(queue)
-            pump.cancel()
-            with contextlib.suppress(asyncio.CancelledError):
-                await pump
+            if pump is not None:
+                pump.cancel()
+                with contextlib.suppress(asyncio.CancelledError):
+                    await pump
         return ws
 
     async def _pump(ws: web.WebSocketResponse, queue: asyncio.Queue) -> None:

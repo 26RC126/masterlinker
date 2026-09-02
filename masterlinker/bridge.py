@@ -56,6 +56,11 @@ class Bridge:
         self._relays: dict[tuple[str, int], list[Relay]] = {}
         self._judges: dict[tuple[str, int], StreamJudge] = {}
         self._recent_text: deque[tuple[float, str]] = deque(maxlen=200)
+        # Nodes with an announcement in flight. Speech synthesis happens before
+        # the stream is opened, so outbound_stream_id alone leaves a window in
+        # which a node looks idle and a second announcement gets started on top
+        # of the first.
+        self._delivering: set[str] = set()
         self._tasks: list[asyncio.Task] = []
         self._running = False
 
@@ -628,15 +633,25 @@ class Bridge:
             node = self.nodes.get(node_id)
             if node is None or not node.connected or node.channel_status != "online":
                 continue
-            busy = bool(node.inbound) or node.outbound_stream_id is not None
+            busy = (bool(node.inbound)
+                    or node.outbound_stream_id is not None
+                    or node_id in self._delivering)
             quiet_for = (time.monotonic() - node.last_human_activity
                          if node.last_human_activity else None)
             item = queue.next_ready(quiet_for=quiet_for, busy=busy)
             if item is None:
                 continue
+            # claim the node before awaiting anything, or the next tick races us
+            self._delivering.add(node_id)
             asyncio.create_task(self._deliver(node, item))
 
     async def _deliver(self, node: ZelloNode, item: Announcement) -> None:
+        try:
+            await self._deliver_inner(node, item)
+        finally:
+            self._delivering.discard(node.id)
+
+    async def _deliver_inner(self, node: ZelloNode, item: Announcement) -> None:
         text = item.render()
         tts = node.cfg.get("tts", {})
         wants_text = item.also_text or tts.get("also_text") or not item.speak
