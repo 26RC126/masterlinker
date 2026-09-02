@@ -235,8 +235,12 @@ text from the same sender inside `bridge.dedupe_window_s` is only relayed once.
 
 Per channel, any mix of:
 
-- **`time`** — "The time is 21 40". 12 or 24 hour.
-- **`date`** — "Today is Wednesday the 2 of September 2026".
+- **`time`** — "The time is 21 40". 12 or 24 hour. Minutes under ten are
+  spoken as "oh five" and the hour on its own as "21 hundred", which is how
+  people say them on the air.
+- **`date`** — "Today is Wednesday the 2nd of September 2026". The day is
+  spoken as an ordinal, because a speech engine reads "the 2 of September" as
+  "the two of September".
 - **`weather`** — from Open-Meteo, which needs no API key. Set
   `announcer.location.lat` and `.lon`. Reads condition, temperature, apparent
   temperature when it differs by 2 degrees or more, and wind.

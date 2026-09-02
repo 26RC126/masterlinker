@@ -225,16 +225,46 @@ def _tz(name: str):
         return None
 
 
+def ordinal(day: int) -> str:
+    """1st, 2nd, 3rd, 4th ... 11th, 12th, 13th ... 21st, 22nd, 23rd.
+
+    Needed because these strings are spoken, not printed. A speech engine
+    reads "the 2 of September" as "the two of September"; it reads "the 2nd"
+    as "the second". Python's strftime has no ordinal directive, so this does
+    the job — and it avoids `%-d`, which is a glibc extension that raises
+    ValueError on Windows.
+    """
+    if 11 <= day % 100 <= 13:
+        return f"{day}th"
+    return f"{day}{ {1: 'st', 2: 'nd', 3: 'rd'}.get(day % 10, 'th')}"
+
+
+def _spoken_minutes(minute: int) -> str:
+    """Radio habit: "oh five" rather than "zero five", "hundred" on the hour."""
+    if minute == 0:
+        return "hundred"
+    if minute < 10:
+        return f"oh {minute}"
+    return str(minute)
+
+
 def time_phrase(cfg: dict[str, Any]) -> str:
     now = datetime.now(_tz(cfg.get("timezone", "")))
     if cfg.get("clock", "24h") == "12h":
-        return f"The time is {now.strftime('%-I:%M %p').lower()}"
-    return f"The time is {now.strftime('%H %M')}"
+        hour = now.hour % 12 or 12
+        suffix = "am" if now.hour < 12 else "pm"
+        if now.minute == 0:
+            return f"The time is {hour} {suffix}"
+        if now.minute < 10:
+            return f"The time is {hour} oh {now.minute} {suffix}"
+        return f"The time is {hour}:{now.minute:02d} {suffix}"
+    return f"The time is {now.strftime('%H')} {_spoken_minutes(now.minute)}"
 
 
 def date_phrase(cfg: dict[str, Any]) -> str:
     now = datetime.now(_tz(cfg.get("timezone", "")))
-    return f"Today is {now.strftime('%A the %-d of %B %Y')}"
+    return (f"Today is {now.strftime('%A')} the {ordinal(now.day)} "
+            f"of {now.strftime('%B %Y')}")
 
 
 async def weather_phrase(session, cfg: dict[str, Any]) -> str:

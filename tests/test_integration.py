@@ -199,6 +199,31 @@ async def main():
         results.append((name, condition, detail))
         print(f"{'PASS' if condition else 'FAIL'}  {name}{'  ' + detail if detail else ''}")
 
+    # -- spoken date and time formatting -------------------------------
+    from datetime import datetime as _dt
+    from unittest.mock import patch as _patch
+    from masterlinker.speech import ordinal, time_phrase, date_phrase
+
+    check("day numbers are spoken as ordinals",
+          [ordinal(d) for d in (1, 2, 3, 4, 11, 12, 13, 21, 22, 23, 31)]
+          == ["1st", "2nd", "3rd", "4th", "11th", "12th", "13th",
+              "21st", "22nd", "23rd", "31st"])
+
+    def _at(when, **cfg):
+        with _patch("masterlinker.speech.datetime") as d:
+            d.now.return_value = when
+            return time_phrase(cfg) if cfg else date_phrase({})
+
+    check("the date reads naturally aloud",
+          _at(_dt(2026, 9, 2)) == "Today is Wednesday the 2nd of September 2026",
+          _at(_dt(2026, 9, 2)))
+    check("minutes under ten are spoken as 'oh five'",
+          _at(_dt(2026, 9, 2, 21, 5), clock="24h") == "The time is 21 oh 5")
+    check("the hour on its own is spoken as 'hundred'",
+          _at(_dt(2026, 9, 2, 9, 0), clock="24h") == "The time is 09 hundred")
+    check("the 12 hour clock reads correctly",
+          _at(_dt(2026, 9, 2, 13, 0), clock="12h") == "The time is 1 pm")
+
     # -- legacy config migration ---------------------------------------
     import json as _json
     legacy_path = os.path.join(tmp, "legacy.json")
