@@ -412,7 +412,54 @@ async def main():
 
         async with session.get(f"{base}/") as resp:
             html = await resp.text()
+            headers = resp.headers
         check("the panel page is served", resp.status == 200 and "Patch" in html)
+        check("security headers are set",
+              headers.get("X-Frame-Options") == "DENY"
+              and headers.get("X-Content-Type-Options") == "nosniff"
+              and "frame-ancestors 'none'" in headers.get("Content-Security-Policy", ""))
+        check("the panel loads no third-party resources",
+              "googleapis" not in html and "http://" not in html)
+        async with session.post(f"{base}/api/links",
+                                json={"a": "alpha", "b": "bravo"},
+                                headers={"Origin": "https://evil.example"}) as resp:
+            cross_site = resp.status
+        check("a cross-site request is refused", cross_site == 403, str(cross_site))
+
+    # -- sign-in throttling ---------------------------------------------
+    from masterlinker.auth import make_user
+    config.data["web"].update({"require_auth": True, "login_max_attempts": 3,
+                               "login_lockout_s": 60})
+    config.data["users"] = [make_user("admin", "correcthorsebattery")]
+    guard_app = build_app(config, bridge)
+    guard_runner = web.AppRunner(guard_app, access_log=None)
+    await guard_runner.setup()
+    guard_site = web.TCPSite(guard_runner, "127.0.0.1", 0)
+    await guard_site.start()
+    guard_base = f"http://127.0.0.1:{guard_site._server.sockets[0].getsockname()[1]}"
+
+    async with ClientSession() as session:
+        async with session.get(f"{guard_base}/api/state") as resp:
+            unauth = resp.status
+        check("the API refuses unauthenticated callers", unauth == 401, str(unauth))
+
+        codes = []
+        for _ in range(4):
+            async with session.post(f"{guard_base}/api/login",
+                                    json={"username": "admin",
+                                          "password": "wrong"}) as resp:
+                codes.append(resp.status)
+        check("repeated bad passwords get locked out",
+              codes == [401, 401, 401, 429], str(codes))
+
+        async with session.post(f"{guard_base}/api/login",
+                                json={"username": "admin",
+                                      "password": "correcthorsebattery"}) as resp:
+            locked = resp.status
+        check("the lockout holds even for the right password", locked == 429,
+              str(locked))
+    await guard_runner.cleanup()
+    config.data["web"]["require_auth"] = False
 
     await api_runner.cleanup()
     await bridge.stop()

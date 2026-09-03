@@ -32,16 +32,33 @@ async def _serve(config: Config) -> None:
 
     runner = web.AppRunner(app, access_log=None)
     await runner.setup()
-    host = config.data["web"]["host"]
-    port = int(config.data["web"]["port"])
-    site = web.TCPSite(runner, host, port)
+    web_cfg = config.data["web"]
+    host = web_cfg["host"]
+    port = int(web_cfg["port"])
+
+    ssl_context = None
+    cert, key = web_cfg.get("tls_cert", ""), web_cfg.get("tls_key", "")
+    if cert and key:
+        import ssl
+        ssl_context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
+        ssl_context.load_cert_chain(cert, key)
+        ssl_context.minimum_version = ssl.TLSVersion.TLSv1_2
+
+    site = web.TCPSite(runner, host, port, ssl_context=ssl_context)
     await site.start()
 
-    print(f"{config.app_name} {__version__} — panel on http://{host}:{port}")
-    if not config.data["web"].get("require_auth", True):
+    scheme = "https" if ssl_context else "http"
+    print(f"{config.app_name} {__version__} — panel on {scheme}://{host}:{port}")
+
+    local_only = host in ("127.0.0.1", "localhost", "::1")
+    if not web_cfg.get("require_auth", True):
         print("  Panel authentication is off.")
-    if host not in ("127.0.0.1", "localhost", "::1"):
-        print("  Reachable beyond this machine. Put it behind TLS if that is not deliberate.")
+        if not local_only:
+            print("  Anyone who can reach this port controls your channels.")
+    if not local_only and not ssl_context and not web_cfg.get("behind_proxy"):
+        print("  Reachable beyond this machine over plain HTTP. Set web.tls_cert")
+        print("  and web.tls_key, or set web.behind_proxy if something in front")
+        print("  terminates TLS — otherwise the password crosses in the clear.")
 
     stop = asyncio.Event()
     loop = asyncio.get_running_loop()

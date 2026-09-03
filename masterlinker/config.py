@@ -150,6 +150,23 @@ DEFAULTS: dict[str, Any] = {
         "multi_user": False,
         "session_hours": 12,
         "secret": "",               # generated on first save
+
+        # Serve HTTPS directly. Point these at a certificate and key —
+        # Let's Encrypt files work as-is — and no reverse proxy is needed.
+        "tls_cert": "",
+        "tls_key": "",
+
+        # Set when something in front terminates TLS, so the panel trusts
+        # X-Forwarded-For for rate limiting and marks cookies Secure.
+        "behind_proxy": False,
+
+        # Brute-force resistance on the sign-in form.
+        "login_max_attempts": 5,
+        "login_lockout_s": 300,
+
+        # Extra origins allowed to make state-changing requests, if you front
+        # the panel with a hostname it cannot infer.
+        "trusted_origins": [],
     },
 
     "zello": {

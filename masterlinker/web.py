@@ -13,6 +13,8 @@ import asyncio
 import contextlib
 import copy
 import os
+import time
+from collections import defaultdict
 from typing import Any
 
 from aiohttp import WSMsgType, web
@@ -38,6 +40,59 @@ def redact(value: Any) -> Any:
     return value
 
 
+def client_ip(request: web.Request) -> str:
+    """The caller's address, honouring a proxy only when told to trust one.
+
+    Reading X-Forwarded-For unconditionally would let anyone spoof their way
+    out of the login throttle by setting the header themselves.
+    """
+    config: Config = request.app["config"]
+    if config.data["web"].get("behind_proxy"):
+        forwarded = request.headers.get("X-Forwarded-For", "")
+        if forwarded:
+            return forwarded.split(",")[0].strip()
+    return request.remote or "?"
+
+
+def cookie_is_secure(config: Config) -> bool:
+    web_cfg = config.data["web"]
+    return bool(web_cfg.get("tls_cert")) or bool(web_cfg.get("behind_proxy"))
+
+
+@web.middleware
+async def security_middleware(request: web.Request, handler):
+    """Security headers, plus an origin check on anything that changes state."""
+    config: Config = request.app["config"]
+
+    if request.method in ("POST", "PUT", "PATCH", "DELETE"):
+        origin = request.headers.get("Origin")
+        # Browsers always send Origin on these methods. Non-browser clients
+        # (the CLI, curl) send none, and CSRF needs a browser, so a missing
+        # Origin is safe to allow while a mismatched one is not.
+        if origin:
+            allowed = {f"{request.scheme}://{request.host}",
+                       f"https://{request.host}", f"http://{request.host}"}
+            allowed.update(config.data["web"].get("trusted_origins", []))
+            if origin not in allowed:
+                return web.json_response(
+                    {"error": "Request blocked: it came from another site."},
+                    status=403)
+
+    response = await handler(request)
+    response.headers.setdefault("X-Content-Type-Options", "nosniff")
+    response.headers.setdefault("Referrer-Policy", "no-referrer")
+    response.headers.setdefault(
+        "Content-Security-Policy",
+        "default-src 'self'; img-src 'self' data:; style-src 'self'; "
+        "script-src 'self'; connect-src 'self' ws: wss:; "
+        "frame-ancestors 'none'; base-uri 'none'; form-action 'self'")
+    response.headers.setdefault("X-Frame-Options", "DENY")
+    if cookie_is_secure(config):
+        response.headers.setdefault(
+            "Strict-Transport-Security", "max-age=31536000")
+    return response
+
+
 @web.middleware
 async def auth_middleware(request: web.Request, handler):
     config: Config = request.app["config"]
@@ -55,7 +110,8 @@ async def auth_middleware(request: web.Request, handler):
 
 
 def build_app(config: Config, bridge: Bridge) -> web.Application:
-    app = web.Application(middlewares=[auth_middleware])
+    app = web.Application(middlewares=[security_middleware, auth_middleware])
+    app["login_failures"] = defaultdict(list)
     app["config"] = config
     app["bridge"] = bridge
 
@@ -75,18 +131,49 @@ def build_app(config: Config, bridge: Bridge) -> web.Application:
         })
 
     async def login(request: web.Request) -> web.Response:
+        web_cfg = config.data["web"]
+        failures: dict[str, list[float]] = request.app["login_failures"]
+        limit = int(web_cfg.get("login_max_attempts", 5))
+        lockout = float(web_cfg.get("login_lockout_s", 300))
+        now = time.monotonic()
+
+        # Throttle by address and by username, so neither a single host
+        # hammering the form nor a spread-out attempt on one account gets
+        # unlimited guesses.
         body = await request.json()
-        user = auth.authenticate(config.data["users"],
-                                 body.get("username", ""), body.get("password", ""))
+        username = body.get("username", "")
+        keys = [f"ip:{client_ip(request)}", f"user:{username}"]
+        for key in keys:
+            failures[key] = [t for t in failures[key] if now - t < lockout]
+        blocked = next((k for k in keys if len(failures[k]) >= limit), None)
+        if blocked:
+            wait = int(lockout - (now - failures[blocked][0]))
+            bridge.log("warn", f"sign-in blocked for {blocked} — too many attempts")
+            return web.json_response(
+                {"error": f"Too many attempts. Try again in {max(1, wait)} seconds."},
+                status=429)
+
+        user = auth.authenticate(config.data["users"], username,
+                                 body.get("password", ""))
         if user is None:
+            for key in keys:
+                failures[key].append(now)
+            bridge.log("warn", f"failed sign-in for '{username}' "
+                               f"from {client_ip(request)}")
             return web.json_response({"error": "That username and password did not match."},
                                      status=401)
-        token = auth.issue_token(config.data["web"]["secret"], user["username"],
-                                 user.get("role", "admin"),
-                                 int(config.data["web"].get("session_hours", 12)))
+
+        for key in keys:
+            failures.pop(key, None)
+        hours = int(web_cfg.get("session_hours", 12))
+        token = auth.issue_token(web_cfg["secret"], user["username"],
+                                 user.get("role", "admin"), hours)
         response = web.json_response({"ok": True, "user": user["username"]})
-        response.set_cookie(COOKIE, token, httponly=True, samesite="Lax",
-                            max_age=int(config.data["web"].get("session_hours", 12)) * 3600)
+        secure = cookie_is_secure(config)
+        response.set_cookie(COOKIE, token, httponly=True,
+                            samesite="Strict" if secure else "Lax",
+                            secure=secure, max_age=hours * 3600, path="/")
+        bridge.log("info", f"{user['username']} signed in from {client_ip(request)}")
         return response
 
     async def logout(_: web.Request) -> web.Response:

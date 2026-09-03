@@ -20,6 +20,7 @@ live activity log](docs/panel.png)
 - [Install](#install)
 - [Setup](#setup)
 - [Running it](#running-it)
+- [Running it on a VPS](#running-it-on-a-vps)
 - [The panel](#the-panel)
 - [Features in detail](#features-in-detail)
 - [Accessibility](#accessibility)
@@ -179,7 +180,7 @@ Everything is editable afterwards in the panel or by hand in the JSON.
 ```
 
 ```
-Masterlinker 0.1.0 — panel on http://127.0.0.1:8787
+Masterlinker 0.2.0 — panel on http://127.0.0.1:8787
 ```
 
 As a service:
@@ -197,6 +198,54 @@ sessions are cookies and the login posts a password. The program prints a
 warning when it binds to anything else.
 
 ---
+
+## Running it on a VPS
+
+The panel is meant to be reachable. It will not be reachable safely over plain
+HTTP, so give it a certificate:
+
+```json
+"web": {
+  "host": "0.0.0.0",
+  "port": 8787,
+  "tls_cert": "/etc/letsencrypt/live/example.org/fullchain.pem",
+  "tls_key": "/etc/letsencrypt/live/example.org/privkey.pem"
+}
+```
+
+That is all — no reverse proxy needed. If you would rather terminate TLS in
+nginx or Caddy, leave those blank and set `"behind_proxy": true` instead, which
+tells the panel to trust `X-Forwarded-For` and to mark its cookie `Secure`.
+Only set it when something really is in front, or anyone can spoof their
+address and slip the sign-in limits.
+
+What you get either way:
+
+- **Sign-in throttling.** Five wrong passwords, by address and by username,
+  and that combination is locked out for five minutes. Both counters matter:
+  one stops a single host hammering the form, the other stops a spread-out
+  attempt on one account. Failures are logged with the address they came from.
+- **Passwords stored as PBKDF2-HMAC-SHA256**, 200,000 rounds, per-user salt.
+- **Session cookies** signed with HMAC, `HttpOnly`, `SameSite=Strict` and
+  `Secure` once TLS is on.
+- **Cross-site requests refused.** Anything that changes state is checked
+  against the browser's `Origin`, so another site cannot make your browser
+  unlink your channels. Requests with no `Origin` — the CLI, curl — still work,
+  because those cannot be driven by a hostile page.
+- **Security headers** on every response: a content security policy that
+  forbids third-party resources and framing, `nosniff`, `no-referrer`, and
+  HSTS when TLS is on.
+- **No third-party requests.** The panel loads nothing from a CDN, so it works
+  on an offline box and leaks no visit data.
+
+Sensible extras that are not the program's job: a firewall rule limiting the
+port to addresses you use, `fail2ban` on the log, and a long random password.
+If the machine is only for you, running on localhost and reaching it over an
+SSH tunnel is still the least exposed option of all:
+
+```bash
+ssh -L 8787:127.0.0.1:8787 you@your-vps
+```
 
 ## The panel
 
@@ -462,7 +511,7 @@ number it wants.
 
 | Section | Notable keys |
 |---|---|
-| `web` | `host`, `port`, `require_auth`, `multi_user`, `session_hours` |
+| `web` | `host`, `port`, `require_auth`, `multi_user`, `session_hours`, `tls_cert`, `tls_key`, `behind_proxy`, `login_max_attempts`, `login_lockout_s`, `trusted_origins` |
 | `zello` | `ws_url`, `issuer`, `private_key_path`, `token_ttl_s`, `request_transcriptions` |
 | `audio` | `tts_backend` (`auto`/`espeak-ng`/`piper`/`say`/`none`), `piper_model`, `sample_rate`, `frame_ms`, `opus_bitrate` |
 | `bridge` | `max_hops`, `dedupe_window_s`, `ptt_release_grace_ms` |
@@ -559,9 +608,10 @@ good for 30 days. Masterlinker mints its own from your issuer and private key,
 so this does not apply — but if you paste a sample token somewhere expecting it
 to keep working, it will not.
 
-**The panel is not hardened for the open internet.** It is a control panel for
-a thing on your own network. Keep it on localhost, or behind a reverse proxy
-with TLS and your own access control.
+**Exposing the panel needs TLS and a strong password**, but it is built to be
+exposed. See [Running it on a VPS](#running-it-on-a-vps). The one thing not to
+do is put it on a public address over plain HTTP, which sends your password in
+the clear; the program prints a warning if you try.
 
 ---
 

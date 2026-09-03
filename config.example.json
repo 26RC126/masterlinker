@@ -8,7 +8,13 @@
     "require_auth": true,
     "multi_user": false,
     "session_hours": 12,
-    "secret": "generated-on-first-run-do-not-copy-this"
+    "secret": "generated-on-first-run-do-not-copy-this",
+    "tls_cert": "/etc/letsencrypt/live/example.org/fullchain.pem",
+    "tls_key": "/etc/letsencrypt/live/example.org/privkey.pem",
+    "behind_proxy": false,
+    "login_max_attempts": 5,
+    "login_lockout_s": 300,
+    "trusted_origins": []
   },
   "zello": {
     "ws_url": "wss://zello.io/ws",

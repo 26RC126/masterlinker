@@ -4,9 +4,10 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Masterlinker</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<!-- No external font CDN on purpose: the panel is often reachable from the
+     open internet or from an offline bridge box, and it should not phone out
+     to a third party or depend on one to render. IBM Plex is used when it is
+     installed locally, otherwise the system stack takes over. -->
 <link rel="stylesheet" href="/static/panel.css">
 </head>
 <body>
